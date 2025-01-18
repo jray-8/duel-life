@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Game of Life</title>
+	<link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+	<div class="control-panel">
+		<h2>Duel-Life Controls</h2>
+
+		<div class="control-group">
+			<label>Grid Size</label>
+			<input type="range" id="gridSize" min="5" max="80" value="16">
+			<span id="gridSizeValue">16x16</span>
+		</div>
+
+		<div class="control-group">
+			<label>Growth Rate</label>
+			<input type="range" id="speed" min="1" max="15" value="7" step="0.25">
+			<span id="speedValue">7</span>
+		</div>
+
+		<div class="control-group">
+			<label>Coverage</label>
+			<input type="range" id="coverageSlider" min="0" max="1" step="0.01" value="0.4">
+			<span id="coverageValue">40%</span>
+		</div>
+
+		<div class="control-group">
+			<label>Brush Color</label>
+			<button id="brushColor" title="Swap Brush Color (X)">Swap</button>
+			<div id="brushColorDisplay" class="color-box"></div>
+		</div>
+
+		<div id="legend">
+			<div class="legend-column">
+				<label>Keepers</label>
+				<label>Wanderers</label>
+				<label>Barricades</label>
+			</div>
+	
+			<div class="legend-column">
+				<div data-life="ally" class="color-box"></div>
+				<div data-life="enemy" class="color-box"></div>
+				<div data-life="barricade" class="color-box"></div>
+			</div>
+		</div>
+
+		<div class="button-group">
+			<button id="toggleAnimation" title="Toggle Animation (Spacebar)">Start</button>
+			<button id="toggleGridlines" title="Toggle Gridlines (G)">Gridlines</button>
+			<button id="randomizeButton" title="Randomize Living Cells (R)">Randomize</button>
+			<button id="eraseButton" title="Erase All Cells (E)">Clear All</button>
+		</div>
+	</div>
+
+	<div id="wrapper">
+		<div id="game-container"></div>
+		<div id="cell-info">Cell: <span id="cell-location"></span></div>
+	</div>
+
+	<script type="module" src="js/main.js"></script>
+</body>
+</html>
