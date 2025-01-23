@@ -1,5 +1,6 @@
-import { brush, toggleGridlines, randomizeGrid, clearGrid } from './grid.js';
+import { toggleGridlines } from './grid.js';
 import { applyGameRules } from './rules.js';
+import { brush, randomizeCamps, randomizeTerrain, clearGrid } from './draw.js';
 
 // Animation
 let isRunning = false;
@@ -62,7 +63,8 @@ gridSizeSlider.addEventListener('change', stopSimulation);
 
 // Buttons
 const animateButton = document.getElementById('toggleAnimation');
-const randomizeButton = document.getElementById('randomizeButton');
+const randCampsBtn = document.getElementById('campButton');
+const randMountainsBtn = document.getElementById('mountainButton');
 const eraseButton = document.getElementById('eraseButton');
 const gridlineButton = document.getElementById('toggleGridlines');
 const brushColorButton = document.getElementById('brushColor');
@@ -71,9 +73,14 @@ animateButton.addEventListener('click', () => {
 	toggleSimulation();
 });
 
-randomizeButton.addEventListener('click', () => {
+randCampsBtn.addEventListener('click', () => {
 	stopSimulation();
-	randomizeGrid();
+	randomizeCamps();
+});
+
+randMountainsBtn.addEventListener('click', () => {
+	stopSimulation();
+	randomizeTerrain();
 });
 
 eraseButton.addEventListener('click', () => {
@@ -83,10 +90,11 @@ eraseButton.addEventListener('click', () => {
 
 gridlineButton.addEventListener('click', () => {
 	toggleGridlines();
-	console.log(window.getComputedStyle(gridlineButton));
 });
 
-brushColorButton.addEventListener('click', brush.swapPaint);
+brushColorButton.addEventListener('click', () => {
+	brush.swapPaint();	
+});
 
 /** Adds the active class to a button temporarily */
 function simulateButtonPress(button) {
@@ -115,8 +123,13 @@ document.addEventListener('keydown', (e) => {
 			break;
 		case 'KeyR':
 			stopSimulation();
-			simulateButtonPress(randomizeButton);
-			randomizeGrid();
+			simulateButtonPress(randCampsBtn);
+			randomizeCamps();
+			break;
+		case 'KeyT':
+			stopSimulation();
+			simulateButtonPress(randMountainsBtn);
+			randomizeTerrain();
 			break;
 		case 'KeyE':
 			stopSimulation();

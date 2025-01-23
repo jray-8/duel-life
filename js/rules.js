@@ -1,75 +1,101 @@
-import { PaintTypes, isCellAlive, giveLife, takeLife, grid, gridWidth, gridHeight } from './grid.js';
+import { CellTypes, countNeighbors, grid } from './grid.js';
+import { updateAllCellColors } from './draw.js'
 
-/** Count the number of live cells (of each type) in the Moore neighbourhood */
-function countLiveNeighbours(x, y){
-	const liveNeighbours = {green: 0, red: 0, hybrid: 0};
-
-	const offsets = [-1, 0, 1];
-	offsets.forEach((dx) => {
-		offsets.forEach((dy) => {
-			if (dx === 0 && dy === 0){
-				return; // skip self
-			}
-			const nx = x + dx;
-			const ny = y + dy;
-			if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight){
-				const neighbour = grid[ny][nx];
-				if (isCellAlive(neighbour)){
-					const type = neighbour.dataset.life;
-					if (type in liveNeighbours){
-						liveNeighbours[type] += 1;
-					} 
-				}
-			}
-		});
-	});
-	return liveNeighbours;
-}
-
-/** Rules - Day & Night
+/** Rules for war
  * 
- * 1) Birth:
- * Any dead cell with exactly 3, 6, 7, or 8 live neighbours becomes a live cell
+ * Expansion:
+ * - Use von Neumann neighborhood
  * 
- * 2) Survival:
- * Any live cell with 3, 4, 6, 7, or 8 live neighbours continues to live
+ * 1. Barracks:
+ * 		- An empty cell touched by camps of only one side becomes a camp for that side
+ * 
+ * 2. Defense:
+ * 		- An empty cell touched by camps from both sides of the war becomes a barricade for defense
+ * 
+ * - An empty cell touched by neither side remains empty
+ * 
+ * Capture:
+ * - Use Moore neighborhood
+ * - A camp cell (allied or enemy) has `A` allied neighbors and `E` enemy neighbors (not including its self)
+ * - The total contest for the cell is `A + E`
+ * 
+ * 1. Ally capture:
+ * 		- An enemy camp has a `A/(A+E)` chance to convert to an allied camp
+ * 
+ * 2. Enemy capture:
+ * 		- An allied camp has a `E/(A+E)` chance to convert to an enemy camp
+ * 
+ * 3. Barricade takeover:
+ * 		- A barricade will convert to the camp who controls at least 2/3 (66%) of its neighbors
  */
 function applyGameRules() {
-	const birthNeighbours = [3, 6, 7, 8];
-	const survivalNeighbours = [3, 4, 6, 7, 8];
 	const updates = [];
 
-	grid.forEach((row, y) => {
-		row.forEach((cell, x) => {
-			const liveNeighbours = countLiveNeighbours(x, y);
-			const totalAlive = Object.values(liveNeighbours).reduce((sum, value) => sum + value, 0);
+	for (let y=0; y < grid.length; ++y) {
+		for (let x=0; x < grid[y].length; ++x) {
+			const cell = grid[y][x];
+			const vonNeumannCounts = countNeighbors(x, y, false);
 
-			const selfAlive = isCellAlive(cell);
-			// fail to survive
-			if (selfAlive && (!survivalNeighbours.includes(totalAlive))){
-				updates.push({cell, alive: null}); // dies
+			// Expansion
+			if (CellTypes.isEmpty(cell)) {
+				if (vonNeumannCounts[CellTypes.ENEMY] === 0 && vonNeumannCounts[CellTypes.ALLY] > 0) {
+					updates.push({cell, life: CellTypes.ALLY});
+				}
+				else if (vonNeumannCounts[CellTypes.ALLY] === 0 && vonNeumannCounts[CellTypes.ENEMY] > 0) {
+					updates.push({cell, life: CellTypes.ENEMY});
+				}
+				// Both non-zero
+				else if (vonNeumannCounts[CellTypes.ALLY] && vonNeumannCounts[CellTypes.ENEMY]) {
+					updates.push({cell, life: CellTypes.BARRICADE});
+				}
+				continue;
 			}
-			// birth
-			else if (birthNeighbours.includes(totalAlive)){
-				let type;
-				if (liveNeighbours.green > 0 && liveNeighbours.red > 0){
-					type = PaintTypes.BAR;
+
+			// Capture - stochastic
+			const neighborCounts = countNeighbors(x, y, true);
+			const totalContesting = neighborCounts[CellTypes.ALLY] + neighborCounts[CellTypes.ENEMY];
+
+			// Ally Team
+			if (CellTypes.isAlly(cell)) {
+				// Probability of enemies capturing this cell
+				const enemyPower = neighborCounts[CellTypes.ENEMY] / totalContesting;
+				if (Math.random() < enemyPower) {
+					updates.push({cell, life: CellTypes.ENEMY});
 				}
-				else if (liveNeighbours.green > 0){
-					type = PaintTypes.ALLY;
-				}
-				else {
-					type = PaintTypes.ENEMY;
-				}
-				updates.push({cell, alive: type});
 			}
-		});
-	});
+
+			// Enemy Team
+			else if (CellTypes.isEnemy(cell)) {
+				// Probability of allies capturing this cell
+				const allyPower = neighborCounts[CellTypes.ALLY] / totalContesting;
+				if (Math.random() < allyPower) {
+					updates.push({cell, life: CellTypes.ALLY});
+				}
+			}
+			
+			// Barricades - won only by strategy, not by chance
+			else if (CellTypes.isBarricade(cell)) {
+				const threshold = 0.66;
+				// Allies takes control
+				if (neighborCounts[CellTypes.ALLY] / totalContesting > threshold) {
+					updates.push({cell, life: CellTypes.ALLY});
+				}
+				// Enemies take control
+				else if (neighborCounts[CellTypes.ENEMY] / totalContesting > threshold) {
+					updates.push({cell, life: CellTypes.ENEMY});
+				}
+			}
+		}
+	}
 
 	// Apply changes
-	updates.forEach(({cell, alive}) => {
-		alive ? giveLife(cell, alive) : takeLife(cell);
-	});
-}
+	for (let i = 0; i < updates.length; i++) {
+		const {cell, life} = updates[i];
+		life ? CellTypes.setCell(cell, life) : CellTypes.clearCell(cell);
+	}
 
-export { isCellAlive, applyGameRules };
+	// Dynamic coloring
+	updateAllCellColors();
+}
+  
+export { applyGameRules };

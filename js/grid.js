@@ -2,72 +2,59 @@
 let gridWidth = 50;
 let gridHeight = 50;
 let cellSize = 15;
-let coverage = 0.4;
 let showGridlines = true;
 
 let grid = [];
 
 const container = document.getElementById('game-container');
-const cellPosLabel = document.getElementById('cell-location');
-const brushColorDisplay = document.getElementById('brushColorDisplay');
 
-class PaintTypes {
+class CellTypes {
 	static ALLY = 'ally';
 	static ENEMY = 'enemy';
-	static BAR = 'barr'
-}
+	static BARRICADE = 'barricade';
+	static MOUNTAIN = 'mountain';
+	static EMPTY = 'empty';
 
-class PaintBrush {
-	constructor() {
-		this.isMouseDown = false; 		// track mouse click state
-		this.mode = 'draw'; 			// draw or erase (cells)
-		this.color = PaintTypes.ALLY; 	// type of cell to draw
-
-		brushColorDisplay.dataset.life = this.color; // apply first coat
+	/** Give a type to a cell */
+	static setCell(cell, type) {
+		cell.dataset.type = type;
 	}
 
-	swapPaint(){
-		if (this.color === PaintTypes.ALLY){
-			this.color = PaintTypes.ENEMY;
-		}
-		else {
-			this.color = PaintTypes.ALLY;
-		}
-		// Update color box
-		brushColorDisplay.dataset.life = this.color;
+	/** Give a cell type EMPTY */
+	static clearCell(cell) {
+		cell.dataset.type = CellTypes.EMPTY;
 	}
 
-	/** Handle changing cell state based on brush mode */
-	brushCell(cell){
-		const alive = isCellAlive(cell);
-		// Draw: bring cell to life
-		if (this.mode === 'draw'){
-			giveLife(cell, brush.color);
-		}
-		// Erase: kill cell
-		else if (this.mode === 'erase' && alive){
-			takeLife(cell);
-		}
+	/** Check if a cell is a camp (ally or enemy) */
+	static isCamp(cell){
+		return this.isAlly(cell) || this.isEnemy(cell);
+	}
+
+	static isAlly(cell){
+		return cell.dataset.type === CellTypes.ALLY;
+	}
+
+	static isEnemy(cell){
+		return cell.dataset.type === CellTypes.ENEMY;
+	}
+
+	static isBarricade(cell){
+		return cell.dataset.type === CellTypes.BARRICADE;
+	}
+
+	static isMountain(cell){
+		return cell.dataset.type === CellTypes.MOUNTAIN;
+	}
+
+	static isEmpty(cell){
+		return !(cell.dataset.type) || cell.dataset.type === CellTypes.EMPTY;
+	}
+
+	/** Returns an object's dataset.type */
+	static get(cell) {
+		return cell.dataset.type;
 	}
 }
-
-const brush = new PaintBrush();
-
-
-/** Check if a cell is living */
-function isCellAlive(cell){
-	return cell && cell.dataset.life && cell.dataset.life !== 'none';
-}
-
-/** Give a type of live to a cell: */
-function giveLife(cell, type) {
-	cell.dataset.life = type;
-}
-
-function takeLife(cell) {
-	cell.dataset.life = 'none';
-}
-
 
 function createGrid() {
 	container.innerHTML = ''; // clear previous grid
@@ -81,7 +68,6 @@ function createGrid() {
 		for (let x=0; x < gridWidth; ++x){
 			const cell = document.createElement('div');
 			cell.classList.add('cell');
-			takeLife(cell); // default state
 			cell.dataset.x = x;
 			cell.dataset.y = y;
 			container.appendChild(cell);
@@ -90,50 +76,41 @@ function createGrid() {
 	}
 }
 
-/** Add event listeners draw/erase cells, and track brush position */
-function enableInteractivity() {
-	// start a new stroke
-	document.addEventListener('mousedown', (e) => {
-		brush.isMouseDown = true;
-
-		// Select brush mode based on left/right click
-		e.button === 0 ? brush.mode = 'draw' : brush.mode = 'erase';
-		
-		// Clicked cell
-		if (e.target.classList.contains('cell')){
-			const cell = e.target;
-			brush.brushCell(cell)
-		}
-	});
-
-	// end stroke
-	document.addEventListener('mouseup', () => {
-		brush.isMouseDown = false;
-	});
-
-	// continue stroking, or move cursor
-	document.addEventListener('mousemove', (e) => {
-		if (e.target.classList.contains('cell')){
-			const cell = e.target;
-			if (brush.isMouseDown) {
-				brush.brushCell(cell);
+/** Generate the sequence neighbors relative to a cell */
+function* getNeighbors(x, y, diagonals = true) {
+	const offsets = [-1, 0, 1];
+	for (let dx of offsets) {
+		for (let dy of offsets) {
+			if (dx === 0 && dy === 0) {
+				continue; // skip self
 			}
-			// Track cell position
-			let xPos = parseInt(cell.dataset.x) + 1;
-			let yPos = parseInt(cell.dataset.y) + 1;
-			cellPosLabel.textContent = `(${xPos}, ${yPos})`; 
+			if (!diagonals && dx && dy) {
+				continue; // skip diagonals
+			}
+			const nx = x + dx;
+			const ny = y + dy;
+			if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight){
+				yield grid[ny][nx];
+			}
 		}
-	});
+	}
+}
 
-	// mouse left grid
-	container.addEventListener('mouseleave', () => {
-		cellPosLabel.textContent = '';
-	})
-
-	// prevent right-clicking in game area
-	container.addEventListener('contextmenu', (e) => {
-		e.preventDefault();
-	});
+/** Count the number of each type of cell in the Moore neighborhood */
+function countNeighbors(x, y, diagonals = true){
+	const neighborhood = {};
+	// Initialize counts for each cell type
+	for (let type of Object.values(CellTypes)) {
+		neighborhood[type] = 0;
+	}
+	// Count all neighbors
+	for (const neighbor of getNeighbors(x, y, diagonals)) {
+		const type = neighbor.dataset.type;
+		if (type in neighborhood){
+			neighborhood[type] += 1;
+		}
+	}
+	return neighborhood;
 }
 
 function setGridGap() {
@@ -172,23 +149,13 @@ function updateGrid() {
 const gridSizeSlider = document.getElementById('gridSize');
 const gridSizeDisplay = document.getElementById('gridSizeValue');
 
-const coverageSlider = document.getElementById('coverageSlider');
-const coverageDisplay = document.getElementById('coverageValue');
-
 function updateSizeDisplay() {
 	const newSize = parseInt(gridSizeSlider.value);
 	gridSizeDisplay.textContent = `${newSize}x${newSize}`;
 }
 
-function updateCoverage() {
-	coverage = parseFloat(coverageSlider.value);
-	coverageDisplay.textContent = `${(coverage * 100).toFixed(0)}%`;
-}
-
 gridSizeSlider.addEventListener('change', updateGrid);
 gridSizeSlider.addEventListener('input', updateSizeDisplay);
-
-coverageSlider.addEventListener('input', updateCoverage);
 
 
 // Button effects
@@ -205,34 +172,8 @@ function toggleGridlines() {
 	redrawGrid();
 }
 
-/** Randomize cell states based on coverage */
-function randomizeGrid() {
-	grid.forEach((row) => {
-		row.forEach((cell) => {
-			const paint = Math.random() < 0.5 ? PaintTypes.ALLY : PaintTypes.ENEMY;
-			Math.random() < coverage ? giveLife(cell, paint) : takeLife(cell);
-		});
-	});
-}
+// Initialize grid
+updateSizeDisplay();
+updateGrid();
 
-/** Kill all cells */
-function clearGrid() {
-	grid.forEach((row) => {
-		row.forEach((cell) => {
-			takeLife(cell);
-		});
-	});
-}
-
-
-/** Creates first grid and initializes values from sliders */
-function initGrid() {
-	updateCoverage();
-	updateSizeDisplay();
-	updateGrid(); 
-	enableInteractivity();
-}
-
-initGrid();
-
-export { PaintTypes, brush, toggleGridlines, randomizeGrid, clearGrid, isCellAlive, giveLife, takeLife, grid, gridWidth, gridHeight};
+export { CellTypes, toggleGridlines, countNeighbors, getNeighbors, grid };
