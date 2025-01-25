@@ -83,9 +83,9 @@ randMountainsBtn.addEventListener('click', () => {
 	randomizeTerrain();
 });
 
-eraseButton.addEventListener('click', () => {
+eraseButton.addEventListener('click', (e) => {
 	stopSimulation();
-	clearGrid();
+	clearGrid(e.shiftKey);
 })
 
 gridlineButton.addEventListener('click', () => {
@@ -107,11 +107,24 @@ function simulateButtonPress(button) {
 // Keyboard shortcuts
 let keysPressed = {};
 
+const keyToIndex = {
+	'Digit1': 0,
+	'Digit2': 1,
+	'Digit3': 2,
+	'Digit4': 3
+};
+
 document.addEventListener('keydown', (e) => {
 	if (keysPressed[e.code]){
 		return;
 	}
 	keysPressed[e.code] = true;
+
+	// Number keys
+	if (e.code in keyToIndex) {
+		brush.setPaint(brush.brushOrder[keyToIndex[e.code]]);
+		return;
+	}
 
 	switch (e.code) {
 		case 'Space':
@@ -122,25 +135,30 @@ document.addEventListener('keydown', (e) => {
 			toggleSimulation();
 			break;
 		case 'KeyR':
+			e.target.blur();
 			stopSimulation();
 			simulateButtonPress(randCampsBtn);
 			randomizeCamps();
 			break;
 		case 'KeyT':
+			e.target.blur();
 			stopSimulation();
 			simulateButtonPress(randMountainsBtn);
 			randomizeTerrain();
 			break;
 		case 'KeyE':
+			e.target.blur();
 			stopSimulation();
 			simulateButtonPress(eraseButton);
-			clearGrid();
+			clearGrid(e.shiftKey);
 			break;
 		case 'KeyG':
+			e.target.blur();
 			simulateButtonPress(gridlineButton);
 			toggleGridlines();
 			break;
 		case 'KeyX':
+			e.target.blur();
 			simulateButtonPress(brushColorButton);
 			brush.swapPaint();
 			break;

@@ -26,7 +26,7 @@ import { updateAllCellColors } from './draw.js'
  * 		- An allied camp has a `E/(A+E)` chance to convert to an enemy camp
  * 
  * 3. Barricade takeover:
- * 		- A barricade will convert to the camp who controls at least 2/3 (66%) of its neighbors
+ * 		- A barricade will convert to the camp who controls at least 3/4 (75%) of its neighbors
  */
 function applyGameRules() {
 	const updates = [];
@@ -53,12 +53,13 @@ function applyGameRules() {
 
 			// Capture - stochastic
 			const neighborCounts = countNeighbors(x, y, true);
-			const totalContesting = neighborCounts[CellTypes.ALLY] + neighborCounts[CellTypes.ENEMY];
+			/** Number of non-mountain, non-barricades */
+			const totalCapturable = neighborCounts[CellTypes.ALLY] + neighborCounts[CellTypes.ENEMY] + neighborCounts[CellTypes.EMPTY];
 
 			// Ally Team
 			if (CellTypes.isAlly(cell)) {
 				// Probability of enemies capturing this cell
-				const enemyPower = neighborCounts[CellTypes.ENEMY] / totalContesting;
+				const enemyPower = neighborCounts[CellTypes.ENEMY] / totalCapturable;
 				if (Math.random() < enemyPower) {
 					updates.push({cell, life: CellTypes.ENEMY});
 				}
@@ -67,7 +68,7 @@ function applyGameRules() {
 			// Enemy Team
 			else if (CellTypes.isEnemy(cell)) {
 				// Probability of allies capturing this cell
-				const allyPower = neighborCounts[CellTypes.ALLY] / totalContesting;
+				const allyPower = neighborCounts[CellTypes.ALLY] / totalCapturable;
 				if (Math.random() < allyPower) {
 					updates.push({cell, life: CellTypes.ALLY});
 				}
@@ -75,13 +76,13 @@ function applyGameRules() {
 			
 			// Barricades - won only by strategy, not by chance
 			else if (CellTypes.isBarricade(cell)) {
-				const threshold = 0.66;
+				const threshold = 0.74; //$$$
 				// Allies takes control
-				if (neighborCounts[CellTypes.ALLY] / totalContesting > threshold) {
+				if (neighborCounts[CellTypes.ALLY] / totalCapturable > threshold) {
 					updates.push({cell, life: CellTypes.ALLY});
 				}
 				// Enemies take control
-				else if (neighborCounts[CellTypes.ENEMY] / totalContesting > threshold) {
+				else if (neighborCounts[CellTypes.ENEMY] / totalCapturable > threshold) {
 					updates.push({cell, life: CellTypes.ENEMY});
 				}
 			}
