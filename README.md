@@ -2,9 +2,9 @@
 
 This is a stochastic cellular automaton that simulates war between two teams!
 
-![Big Earth](./assets/big-earth.gif)
+![Big Earth](./assets/compressed-big-earth.gif)
 
-![Big Earth](./assets/big-dick.gif)
+![Big Earth](./assets/big-dick-resized.gif)
 
 ## Rules
 
@@ -96,3 +96,5 @@ Shortcut | Action
 `3` 			| Select `Mountain` paint
 `4` 			| Select `Barricade` paint
 `Esc` 			| Deselect color / slider
+
+![Big Earth](./assets/big-dick.gif)
