@@ -78,9 +78,6 @@ Therefore, a completely surrounded camp is darkened by a full 70%.
 
 - Randomly generate mountains
 
-Generating mountains clears all other cells.  
-Generating base camps clears existing camps, but not mountains or barricades.
-
 Shortcut | Action 
 :-----------:|-----------------------------
 `Spacebar` 		| Start/pause war 
@@ -94,4 +91,9 @@ Shortcut | Action
 `3` 			| Select `Mountain` paint
 `4` 			| Select `Barricade` paint
 `Esc` 			| Deselect color / slider
+
+<br>
+
+Generating mountains clears all other cells.  
+Generating base camps clears existing camps, but not mountains or barricades.
 
