@@ -63,6 +63,8 @@ Therefore, a completely surrounded camp is darkened by a full 70%.
 
 ## Controls & Features
 
+![Screenshot](./screenshot.jpg)
+
 - Draw and erase cells from the grid
 
 - Use mouse wheel to scroll through cell types
