@@ -5,54 +5,56 @@ let cellSize = 15;
 let showGridlines = true;
 
 let grid = [];
+let stateGrid = []; // Store only the CellTypes
 
 const container = document.getElementById('game-container');
 
 class CellTypes {
-	static ALLY = 'ally';
-	static ENEMY = 'enemy';
-	static BARRICADE = 'barricade';
-	static MOUNTAIN = 'mountain';
-	static EMPTY = 'empty';
+	static ALLY = 1;
+	static ENEMY = 2;
+	static BARRICADE = 3;
+	static MOUNTAIN = 4;
+	static EMPTY = 0;
 
-	/** Give a type to a cell */
-	static setCell(cell, type) {
-		cell.dataset.type = type;
+	/** Update the state grid with a new cell type */
+	static setCell(x, y, type) {
+		stateGrid[y][x] = type;
 	}
 
 	/** Give a cell type EMPTY */
-	static clearCell(cell) {
-		cell.dataset.type = CellTypes.EMPTY;
+	static clearCell(x, y) {
+		stateGrid[y][x] = CellTypes.EMPTY;
 	}
 
 	/** Check if a cell is a camp (ally or enemy) */
-	static isCamp(cell){
-		return this.isAlly(cell) || this.isEnemy(cell);
+	static isCamp(x, y){
+		const type = this.get(x, y);
+		return type === CellTypes.ALLY || type === CellTypes.ENEMY;
 	}
 
-	static isAlly(cell){
-		return cell.dataset.type === CellTypes.ALLY;
+	static isAlly(x, y){
+		return stateGrid[y][x] === CellTypes.ALLY;
 	}
 
-	static isEnemy(cell){
-		return cell.dataset.type === CellTypes.ENEMY;
+	static isEnemy(x, y){
+		return stateGrid[y][x] === CellTypes.ENEMY;
 	}
 
-	static isBarricade(cell){
-		return cell.dataset.type === CellTypes.BARRICADE;
+	static isBarricade(x, y){
+		return stateGrid[y][x] === CellTypes.BARRICADE;
 	}
 
-	static isMountain(cell){
-		return cell.dataset.type === CellTypes.MOUNTAIN;
+	static isMountain(x, y){
+		return stateGrid[y][x] === CellTypes.MOUNTAIN;
 	}
 
-	static isEmpty(cell){
-		return !(cell.dataset.type) || cell.dataset.type === CellTypes.EMPTY;
+	static isEmpty(x, y){
+		return stateGrid[y][x] === CellTypes.EMPTY;
 	}
 
-	/** Returns an object's dataset.type */
-	static get(cell) {
-		return cell.dataset.type;
+	/** Returns the state of a cell based on its position */
+	static get(x, y) {
+		return stateGrid[y][x];
 	}
 }
 
@@ -63,6 +65,7 @@ function createGrid() {
 	container.style.gridTemplateRows = `repeat(${gridHeight}, ${cellSize}px)`;
 
 	grid = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(null));
+	stateGrid = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(CellTypes.EMPTY));
 
 	for (let y=0; y < gridHeight; ++y){
 		for (let x=0; x < gridWidth; ++x){
@@ -76,7 +79,12 @@ function createGrid() {
 	}
 }
 
-/** Generate the sequence neighbors relative to a cell */
+/** Return the position [x, y] of a cell */
+function getCellPos(cell) {
+	return [parseInt(cell.dataset.x), parseInt(cell.dataset.y)]
+}
+
+/** Generate the sequence of [x, y] positions relative to a center cell */
 function* getNeighbors(x, y, diagonals = true) {
 	const offsets = [-1, 0, 1];
 	for (let dx of offsets) {
@@ -90,13 +98,13 @@ function* getNeighbors(x, y, diagonals = true) {
 			const nx = x + dx;
 			const ny = y + dy;
 			if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight){
-				yield grid[ny][nx];
+				yield [nx, ny];
 			}
 		}
 	}
 }
 
-/** Count the number of each type of cell in the Moore neighborhood */
+/** Count the number of each cell state in the Moore neighborhood */
 function countNeighbors(x, y, diagonals = true){
 	const neighborhood = {};
 	// Initialize counts for each cell type
@@ -104,14 +112,18 @@ function countNeighbors(x, y, diagonals = true){
 		neighborhood[type] = 0;
 	}
 	// Count all neighbors
-	for (const neighbor of getNeighbors(x, y, diagonals)) {
-		const type = neighbor.dataset.type;
-		if (type in neighborhood){
-			neighborhood[type] += 1;
-		}
+	for (const [nx, ny] of getNeighbors(x, y, diagonals)) {
+		const state = stateGrid[ny][nx];
+		neighborhood[state] += 1;
 	}
 	return neighborhood;
 }
+
+/** Return the total number of neighboring spaces that are either empty or camps (from either team) */
+function countOpenings(neighborCounts) {
+	return neighborCounts[CellTypes.ALLY] + neighborCounts[CellTypes.ENEMY] + neighborCounts[CellTypes.EMPTY];
+}
+
 
 function setGridGap() {
 	let size = 1;
@@ -176,4 +188,4 @@ function toggleGridlines() {
 updateSizeDisplay();
 updateGrid();
 
-export { CellTypes, toggleGridlines, countNeighbors, getNeighbors, grid };
+export { CellTypes, toggleGridlines, countOpenings, countNeighbors, getNeighbors, getCellPos, stateGrid, grid };

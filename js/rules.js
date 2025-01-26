@@ -1,4 +1,4 @@
-import { CellTypes, countNeighbors, grid } from './grid.js';
+import { CellTypes, countOpenings, countNeighbors, stateGrid } from './grid.js';
 import { updateAllCellColors } from './draw.js'
 
 /** Rules for war
@@ -30,60 +30,59 @@ import { updateAllCellColors } from './draw.js'
  */
 function applyGameRules() {
 	const updates = [];
+	const barricadeTheshold = 0.74;
 
-	for (let y=0; y < grid.length; ++y) {
-		for (let x=0; x < grid[y].length; ++x) {
-			const cell = grid[y][x];
-			const vonNeumannCounts = countNeighbors(x, y, false);
+	for (let y=0; y < stateGrid.length; ++y) {
+		for (let x=0; x < stateGrid[y].length; ++x) {
 
 			// Expansion
-			if (CellTypes.isEmpty(cell)) {
+			if (CellTypes.isEmpty(x, y)) {
+				const vonNeumannCounts = countNeighbors(x, y, false);
+
 				if (vonNeumannCounts[CellTypes.ENEMY] === 0 && vonNeumannCounts[CellTypes.ALLY] > 0) {
-					updates.push({cell, life: CellTypes.ALLY});
+					updates.push({x, y, type: CellTypes.ALLY});
 				}
 				else if (vonNeumannCounts[CellTypes.ALLY] === 0 && vonNeumannCounts[CellTypes.ENEMY] > 0) {
-					updates.push({cell, life: CellTypes.ENEMY});
+					updates.push({x, y, type: CellTypes.ENEMY});
 				}
 				// Both non-zero
 				else if (vonNeumannCounts[CellTypes.ALLY] && vonNeumannCounts[CellTypes.ENEMY]) {
-					updates.push({cell, life: CellTypes.BARRICADE});
+					updates.push({x, y, type: CellTypes.BARRICADE});
 				}
 				continue;
 			}
 
 			// Capture - stochastic
 			const neighborCounts = countNeighbors(x, y, true);
-			/** Number of non-mountain, non-barricades */
-			const totalCapturable = neighborCounts[CellTypes.ALLY] + neighborCounts[CellTypes.ENEMY] + neighborCounts[CellTypes.EMPTY];
+			const totalOpenings = countOpenings(neighborCounts);
 
 			// Ally Team
-			if (CellTypes.isAlly(cell)) {
+			if (CellTypes.isAlly(x, y)) {
 				// Probability of enemies capturing this cell
-				const enemyPower = neighborCounts[CellTypes.ENEMY] / totalCapturable;
+				const enemyPower = neighborCounts[CellTypes.ENEMY] / totalOpenings;
 				if (Math.random() < enemyPower) {
-					updates.push({cell, life: CellTypes.ENEMY});
+					updates.push({x, y, type: CellTypes.ENEMY});
 				}
 			}
 
 			// Enemy Team
-			else if (CellTypes.isEnemy(cell)) {
+			else if (CellTypes.isEnemy(x, y)) {
 				// Probability of allies capturing this cell
-				const allyPower = neighborCounts[CellTypes.ALLY] / totalCapturable;
+				const allyPower = neighborCounts[CellTypes.ALLY] / totalOpenings;
 				if (Math.random() < allyPower) {
-					updates.push({cell, life: CellTypes.ALLY});
+					updates.push({x, y, type: CellTypes.ALLY});
 				}
 			}
 			
-			// Barricades - won only by strategy, not by chance
-			else if (CellTypes.isBarricade(cell)) {
-				const threshold = 0.74; //$$$
+			// Barricades - won by majority (75%) control of neighbors
+			else if (CellTypes.isBarricade(x, y)) {
 				// Allies takes control
-				if (neighborCounts[CellTypes.ALLY] / totalCapturable > threshold) {
-					updates.push({cell, life: CellTypes.ALLY});
+				if (neighborCounts[CellTypes.ALLY] / totalOpenings > barricadeTheshold) {
+					updates.push({x, y, type: CellTypes.ALLY});
 				}
 				// Enemies take control
-				else if (neighborCounts[CellTypes.ENEMY] / totalCapturable > threshold) {
-					updates.push({cell, life: CellTypes.ENEMY});
+				else if (neighborCounts[CellTypes.ENEMY] / totalOpenings > barricadeTheshold) {
+					updates.push({x, y, type: CellTypes.ENEMY});
 				}
 			}
 		}
@@ -91,8 +90,8 @@ function applyGameRules() {
 
 	// Apply changes
 	for (let i = 0; i < updates.length; i++) {
-		const {cell, life} = updates[i];
-		life ? CellTypes.setCell(cell, life) : CellTypes.clearCell(cell);
+		const {x, y, type} = updates[i];
+		CellTypes.setCell(x, y, type);
 	}
 
 	// Dynamic coloring

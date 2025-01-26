@@ -1,4 +1,4 @@
-import { CellTypes, countNeighbors, getNeighbors, grid } from './grid.js'
+import { CellTypes, getCellPos, countOpenings, countNeighbors, getNeighbors, stateGrid, grid } from './grid.js'
 
 const cellPosLabel = document.getElementById('cell-location');
 const brushColorDisplay = document.getElementById('brushColorDisplay');
@@ -10,23 +10,14 @@ let baseCamps = 0;
 /** Percent of mountains on grid */
 let mountainCoverage = 0;
 
+/** Maps CellTypes to hex colors */
 const colors = {
 	[CellTypes.ALLY]: null,
 	[CellTypes.ENEMY]: null,
 	[CellTypes.BARRICADE]: null,
-	[CellTypes.MOUNTAIN]: null
+	[CellTypes.MOUNTAIN]: null,
+	[CellTypes.EMPTY]: '' // Blank, use base css color
 };
-
-/** Accepts a CellTypes string */
-function typeToColor(type) {
-	return colors[type] || ''; // Default -> use css rules instead
-}
-
-/** Accepts a cell (div) */
-function getColor(cell) {
-	const type = cell.dataset.type;
-	return typeToColor(type);
-}
 
 /** Darken and return a new hex color (string) 
  * - Darkens by (%) amount
@@ -67,18 +58,20 @@ function darkenHexColor(hex, percent) {
  * 
  * Darken the cell by `(p * 70)%`
 */
-function updateCellColor(cell) {
-	const isAlly = CellTypes.isAlly(cell);
-	const isEnemy = CellTypes.isEnemy(cell);
-	if (isAlly || isEnemy) {
-		const baseColor = getColor(cell);
+function updateCellColor(x, y) {
+	const cell = grid[y][x];
+	const type = CellTypes.get(x, y);
+	const isAlly = type === CellTypes.ALLY;
+
+	if (isAlly || type === CellTypes.ENEMY) {
+		const baseColor = colors[type];
 
 		// Control (%) of opposing force on this cell
 		const opposingType = isAlly ? CellTypes.ENEMY : CellTypes.ALLY;
-		const neighborCounts = countNeighbors(...getCellPos(cell), true);
-		const totalContesting = neighborCounts[CellTypes.ALLY] + neighborCounts[CellTypes.ENEMY];
-		const power = totalContesting > 0 ? neighborCounts[opposingType] / totalContesting : 0;
-		const darkenPercent = 70 * power; // Darkened by 70% at total lack of power
+		const neighborCounts = countNeighbors(x, y, true);
+		const totalOpenings = countOpenings(neighborCounts);
+		const opposingPower = totalOpenings > 0 ? neighborCounts[opposingType] / totalOpenings : 0;
+		const darkenPercent = 70 * opposingPower; // Darkened by 70% at a total lack of power
 		
 		// Apply darkening effect
 		const hex = darkenHexColor(baseColor, darkenPercent);
@@ -86,14 +79,14 @@ function updateCellColor(cell) {
 	}
 	// Static colors
 	else {
-		cell.style.backgroundColor = getColor(cell);
+		cell.style.backgroundColor = colors[type];
 	}
 }
 
 function updateAllCellColors() {
-	for (let i = 0; i < grid.length; ++i) {
-		for (let j = 0; j < grid[i].length; ++j){
-			updateCellColor(grid[i][j]);
+	for (let y = 0; y < grid.length; ++y) {
+		for (let x = 0; x < grid[y].length; ++x){
+			updateCellColor(x, y);
 		}
 	}
 }
@@ -102,15 +95,10 @@ function updateAllCellColors() {
  * 
  * Does not dynamically color camps
  */
-function applyStaticColor(cell) {
-	cell.style.backgroundColor = getColor(cell);
+function applyStaticColor(x, y) {
+	grid[y][x].style.backgroundColor = colors[stateGrid[y][x]];
 }
 
-
-/** Return position [x, y] of a cell */
-function getCellPos(cell) {
-	return [parseInt(cell.dataset.x), parseInt(cell.dataset.y)]
-}
 
 const brush = {
 	isMouseDown: false, 		// track mouse click state
@@ -127,7 +115,7 @@ const brush = {
 
 	/** Match color box (for the brush) to its paint color */
 	updateColorBox: function() {
-		brushColorDisplay.style.backgroundColor = typeToColor(this.paint);
+		brushColorDisplay.style.backgroundColor = colors[this.paint];
 	},
 
 	/** Changes current paint (for cell type) */
@@ -151,21 +139,22 @@ const brush = {
 	 * - or include the cell `type` to paint
 	*/
 	brushCell: function(cell) {
+		const [x, y] = getCellPos(cell);
 		// Draw: add new type
 		if (this.mode === 'draw'){
-			CellTypes.setCell(cell, this.paint);
+			CellTypes.setCell(x, y, this.paint);
 		}
 		// Erase type
 		else if (this.mode === 'erase'){
-			CellTypes.clearCell(cell);
+			CellTypes.clearCell(x, y);
 		}
 		// Update dynamic colors
-		for (const neighbor of getNeighbors(...getCellPos(cell), true)) {
-			if (CellTypes.isCamp(neighbor)) {
-				updateCellColor(neighbor);
+		for (const [nx, ny] of getNeighbors(x, y, true)) {
+			if (CellTypes.isCamp(nx, ny)) {
+				updateCellColor(nx, ny);
 			}
 		}
-		updateCellColor(cell); // Center cell
+		updateCellColor(x, y); // Center cell
 	}
 }
 
@@ -224,15 +213,14 @@ function enableInteractivity() {
 	});
 
 	// Add types to color boxes (from legend)
-	const allyBox = document.getElementById('allyColor');
-	const enemyBox = document.getElementById('enemyColor');
-	const barricadeBox = document.getElementById('barricadeColor');
-	const mountainBox = document.getElementById('mountainColor');
 
-	allyBox.dataset.type = CellTypes.ALLY;
-	enemyBox.dataset.type = CellTypes.ENEMY;
-	barricadeBox.dataset.type = CellTypes.BARRICADE;
-	mountainBox.dataset.type = CellTypes.MOUNTAIN;
+	/** Maps ID of colorBoxes to its respective cell type */
+	const colorBoxToType = {
+		'allyColor': CellTypes.ALLY,
+		'enemyColor': CellTypes.ENEMY,
+		'barricadeColor': CellTypes.BARRICADE,
+		'mountainColor': CellTypes.MOUNTAIN
+	};
 
 	// Update color boxes
 	const pickers = document.querySelectorAll('.color-picker');
@@ -241,16 +229,31 @@ function enableInteractivity() {
 		function changeColor() {
 			const colorBox = pickr.parentElement;
 			colorBox.style.backgroundColor = pickr.value;
-			colors[CellTypes.get(colorBox)] = pickr.value; // store new color
-			updateAllCellColors();
-			if (colorBox.dataset.type === brush.paint) {
+
+			const type = colorBoxToType[colorBox.id];
+			colors[type] = pickr.value; // store new color
+			if (type === brush.paint) {
 				brush.updateColorBox();
 			}
+			updateAllCellColors();
 		}
 
+		pickr.addEventListener('click', () => {
+			const colorBox = pickr.parentElement;
+			brush.setPaint(colorBoxToType[colorBox.id]);
+		});
+
 		pickr.addEventListener('input', () => {
+			const colorBox = pickr.parentElement;
+			colorBox.style.backgroundColor = pickr.value;
+			brushColorDisplay.style.backgroundColor = pickr.value;
+		});
+
+		pickr.addEventListener('change', () => {
 			changeColor();
 		});
+
+		// Get initial color
 		changeColor();
 	});
 }
@@ -262,12 +265,11 @@ function enableInteractivity() {
 */
 function randomizeCamps() {
 	const availableCells = [];
-	for (let y=0; y < grid.length; ++y) {
-		for (let x=0; x < grid[y].length; ++x) {
-			const cell = grid[y][x];
-			if (!CellTypes.isMountain(cell) && !CellTypes.isBarricade(cell)) {
-				CellTypes.clearCell(cell);
-				availableCells.push(cell);
+	for (let y=0; y < stateGrid.length; ++y) {
+		for (let x=0; x < stateGrid[y].length; ++x) {
+			if (!CellTypes.isMountain(x, y) && !CellTypes.isBarricade(x, y)) {
+				CellTypes.clearCell(x, y);
+				availableCells.push([x, y]);
 			}
 		}
 	}
@@ -283,8 +285,8 @@ function randomizeCamps() {
 	for (const type of [CellTypes.ALLY, CellTypes.ENEMY]) {
 		for (let i = 0; i < baseCamps; ++i) {
 			if (availableCells.length === 0) break; // No empty cells left
-			const cell = availableCells.pop();
-			CellTypes.setCell(cell, type);
+			const [x, y] = availableCells.pop();
+			CellTypes.setCell(x, y, type);
 		}
 	}
 	updateAllCellColors();
@@ -294,25 +296,25 @@ function randomizeCamps() {
  * - Clears all other cells
 */
 function randomizeTerrain() {
-	for (const row of grid) {
-		for (const cell of row) {
-			Math.random() < mountainCoverage ? CellTypes.setCell(cell, CellTypes.MOUNTAIN) : CellTypes.clearCell(cell);
-			applyStaticColor(cell);
+	for (let y=0; y < stateGrid.length; ++y) {
+		for (let x=0; x < stateGrid[y].length; ++x) {
+			Math.random() < mountainCoverage ? CellTypes.setCell(x, y, CellTypes.MOUNTAIN) : CellTypes.clearCell(x, y);
+			applyStaticColor(x, y);
 		}
 	}
 }
 
-/** Erase all cells 
- * - option to keep mountains and erase the rest
+/** Erase all cells
+ * - option to keep environment cells (mountains and barricades)
 */
-function clearGrid(keepMountains = false) {
-	for (const row of grid) {
-		for (const cell of row) {
-			if (keepMountains && CellTypes.isMountain(cell)) {
+function clearGrid(keepEnvironment = false) {
+	for (let y=0; y < stateGrid.length; ++y) {
+		for (let x=0; x < stateGrid[y].length; ++x) {
+			if (keepEnvironment && (CellTypes.isMountain(x, y) || CellTypes.isBarricade(x, y))) {
 				continue;
 			}
-			CellTypes.clearCell(cell);
-			applyStaticColor(cell);
+			CellTypes.clearCell(x, y);
+			applyStaticColor(x, y);
 		}
 	}
 }
@@ -332,7 +334,7 @@ function updateCampCoverage() {
 
 function updateMountainCoverage() {
 	mountainCoverage = parseFloat(mountainCoverageSlider.value);
-	mountainCoverageDisplay.textContent = `${(mountainCoverage * 100).toFixed(0)}%`;
+	mountainCoverageDisplay.textContent = `${(mountainCoverage * 100).toFixed(1)}%`;
 }
 
 baseCampsSlider.addEventListener('input', updateCampCoverage);

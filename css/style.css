@@ -151,7 +151,6 @@ button:active, button.active{
 /* Base styles for the cells */
 .cell {
 	background-color: #838383; /* Color of empty cells */
-	transition: background-color 0.2s ease;
 }
 
 #cell-info {

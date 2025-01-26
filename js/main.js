@@ -114,6 +114,15 @@ const keyToIndex = {
 	'Digit4': 3
 };
 
+const blurKeys = [
+	'Space',
+	'KeyR',
+	'KeyT',
+	'KeyE',
+	'KeyG',
+	'KeyX'
+];
+
 document.addEventListener('keydown', (e) => {
 	if (keysPressed[e.code]){
 		return;
@@ -126,39 +135,38 @@ document.addEventListener('keydown', (e) => {
 		return;
 	}
 
+	// Lose focus on element when shortcuts are pressed
+	if (blurKeys.includes(e.code)) {
+		e.target.blur();
+	}
+
 	switch (e.code) {
 		case 'Space':
 			// Shortcut overrides any other focused element
 			e.preventDefault();
-			e.target.blur();
 			simulateButtonPress(animateButton);
 			toggleSimulation();
 			break;
 		case 'KeyR':
-			e.target.blur();
 			stopSimulation();
 			simulateButtonPress(randCampsBtn);
 			randomizeCamps();
 			break;
 		case 'KeyT':
-			e.target.blur();
 			stopSimulation();
 			simulateButtonPress(randMountainsBtn);
 			randomizeTerrain();
 			break;
 		case 'KeyE':
-			e.target.blur();
 			stopSimulation();
 			simulateButtonPress(eraseButton);
 			clearGrid(e.shiftKey);
 			break;
 		case 'KeyG':
-			e.target.blur();
 			simulateButtonPress(gridlineButton);
 			toggleGridlines();
 			break;
 		case 'KeyX':
-			e.target.blur();
 			simulateButtonPress(brushColorButton);
 			brush.swapPaint();
 			break;
