@@ -42,13 +42,13 @@ War has 2 distinct phases:
 	- An `allied camp` has a `E / (A + E + X)` chance to convert to an enemy camp.
 
 	__Barricade Takeover__
-	- A barricade will convert to the camp that controls at least $75\%$ of its neighbors.
+	- A barricade will convert to the camp that controls at least 75% of its neighbors.
 
 <br>
 
-`Mountains` are simply impassable cells that act to reduce the number of openings a camp has, and make more interesting battlefields.
+`Mountains` are simply impassable cells that act to reduce the number of openings a camp has, and to make more interesting battlefields.
 
-`Barricades` serve as temporary `mountains` until one team has enough control to dismantle it.
+`Barricades` serve as temporary `mountains` until one team attains enough control to dismantle it.
 
 
 ## Dynamic Coloring
@@ -56,11 +56,10 @@ War has 2 distinct phases:
 The camp cells are darkened based on the number of opposing camps surrounding it.
 
 An allied camp will be darkened by:
-$$ \displaystyle \frac{E}{A + E + X} \cdot 70\% $$
-<br>
 
+	E / (A + E + X) · 70%
 
-Therefore, a completely surrounded camp is darkened by a full $70\%$.
+Therefore, a completely surrounded camp is darkened by a full 70%.
 
 ## Controls & Features
 
